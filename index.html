@@ -44,26 +44,6 @@
   .confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:8}
   .confetti span{position:absolute;top:-40px;animation:fall linear forwards}
   @keyframes fall{to{transform:translateY(110vh) rotate(360deg)}}
-  .chk{width:88px;height:88px;display:block;margin:0 auto 8px}
-  .cartouche{position:relative;margin-top:22px;border:2px solid var(--ink);border-radius:4px;padding:14px 14px 4px;background:var(--bg)}
-  .ct-head{font:700 .72rem ui-monospace,Menlo,monospace;letter-spacing:.08em;color:var(--mute);padding-bottom:8px;border-bottom:2px solid var(--ink)}
-  .ct-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
-  .ct-row:last-child{border-bottom:0} .ct-row span{color:var(--mute);font-size:.88rem} .ct-row b{text-align:right}
-  .stamp{position:absolute;right:10px;top:-16px;padding:2px 10px;border:3px solid var(--okb);color:var(--okb);font-weight:800;letter-spacing:.1em;border-radius:6px;background:var(--card);transform:rotate(-8deg)}
-  .quip{margin:18px 0 0;text-align:center;font-style:italic;color:var(--mute);font-size:.95rem}
-  .hero h1{text-align:center}
-  @media (prefers-reduced-motion:no-preference){
-    .chk circle{stroke-dasharray:151;stroke-dashoffset:151;animation:draw .7s ease forwards}
-    .chk path{stroke-dasharray:44;stroke-dashoffset:44;animation:draw .45s .55s ease forwards}
-    .hero h1{animation:pop .6s .2s cubic-bezier(.2,1.6,.4,1) both}
-    .stamp{animation:stamp .45s 1s cubic-bezier(.2,1.4,.4,1) both}
-    .ct-row{animation:slide .4s ease both} .ct-row:nth-child(3){animation-delay:.5s} .ct-row:nth-child(4){animation-delay:.65s}
-    .ct-row:nth-child(5){animation-delay:.8s} .ct-row:nth-child(6){animation-delay:.95s} .ct-row:nth-child(7){animation-delay:1.1s}
-  }
-  @keyframes draw{to{stroke-dashoffset:0}}
-  @keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
-  @keyframes stamp{from{transform:rotate(-8deg) scale(3);opacity:0}to{transform:rotate(-8deg) scale(1);opacity:1}}
-  @keyframes slide{from{transform:translateX(-14px);opacity:0}to{transform:none;opacity:1}}
 </style>
 </head>
 <body>
@@ -214,52 +194,20 @@ function confetti(n=28){
 
 function renderDone(){
   const w=mine("mercredi"), j=mine("jeudi"), f=mine("vendredi");
-  const row=(l,v)=>`<div class="ct-row"><span>${l}</span><b>${v}</b></div>`;
-  const fr = f ? (f.slot==="1"?"1er":f.slot+"e")+" passage<br><small style='color:var(--mute);font-weight:400'>"+(Number(f.slot)<=3?"avant la pause déjeuner":"après la pause déjeuner")+"</small>" : "–";
-  const quips=["Le vrai élément porteur de cette semaine : le café. ☕","Même les plus grands architectes ont fini leurs planches la veille. 📐","Pensez à sauvegarder. Encore une fois. Et une dernière. 💾","Respirez : le plus dur, c'était de caser tout le monde dans le planning. 😉","La critique du jury n'est jamais personnelle (en théorie). 😅","Plan A : un rendu parfait. Plan B : un oral parfait. 😄"];
+  const row=(ic,l,v)=>`<div class="rc"><span class="ic">${ic}</span><div><small>${l}</small><b>${v}</b></div></div>`;
+  const fr = f ? (f.slot==="1"?"1er":f.slot+"e")+" passage "+(Number(f.slot)<=3?"(avant la pause déjeuner)":"(après la pause déjeuner)") : "–";
   $("view").innerHTML = `
-    <div class="hero">
-      <svg class="chk" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24" fill="none" stroke="var(--okb)" stroke-width="3"/><path d="M14 27l8 8 16-17" fill="none" stroke="var(--okb)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <h1>Bravo ${esc(S.group)} !</h1>
-    </div>
-    <p class="sub" style="text-align:center">C'est dans la boîte : vos 3 rendez-vous avec <b>${esc(S.prof)}</b> sont réservés.</p>
-    <div class="cartouche">
-      <div class="stamp">VALIDÉ</div>
-      <div class="ct-head">PLAN DE RÉSERVATION · ÉCH. 1/1</div>
-      ${row("Groupe",esc(S.group))}${row("Enseignant",esc(S.prof))}
-      ${row("Mercredi",w?hh(w.slot)+" – "+hh(END[w.slot]):"–")}
-      ${row("Jeudi",j?hh(j.slot)+" – "+hh(END[j.slot]):"–")}
-      ${row("Vendredi · oral",fr)}
-    </div>
-    <p class="quip">${quips[Math.floor(Math.random()*quips.length)]}</p>
-    <button class="main" id="ticket">Télécharger ma convocation (PDF)</button>
-    <button class="link" id="again">🎉 Remets des confettis</button><br>
+    <div class="big">🎉</div>
+    <h1>Bravo ${esc(S.group)}, c'est dans la boîte !</h1>
+    <p class="sub">Vos 3 rendez-vous sont réservés avec <b>${esc(S.prof)}</b>. Il ne reste plus qu'à préparer l'oral !</p>
+    ${row("📐","Mercredi",w?hh(w.slot)+" – "+hh(END[w.slot]):"–")}
+    ${row("✏️","Jeudi",j?hh(j.slot)+" – "+hh(END[j.slot]):"–")}
+    ${row("🏛️","Vendredi · oral",fr)}
+    <p class="sub" style="margin-top:16px">Fais une capture d'écran pour garder tes horaires. Bon courage ! 💪</p>
     <button class="link" id="seeall">Voir le planning des profs / PDF</button><br>
     <button class="link" id="restart">↺ Recommencer de zéro</button><br>
     <button class="link" id="reset">Je suis un autre groupe</button>`;
-  confetti(40); setTimeout(()=>{ if(S.step==="done") confetti(30); },1800);
-}
-
-async function makeTicket(){
-  if(!window.jspdf) return toast("Le module PDF ne s'est pas chargé. Réessaie.","err");
-  await load();
-  const w=mine("mercredi"), j=mine("jeudi"), f=mine("vendredi");
-  const t=x=>String(x).replace(/[^\x20-\xFF]/g,"?");
-  const doc=new window.jspdf.jsPDF({unit:"mm",format:"a4"});
-  doc.setLineWidth(0.6); doc.rect(15,15,180,112);
-  doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.text("Convocation - Oraux",22,31);
-  doc.setFontSize(13); doc.text(t("Groupe : "+S.group),22,45);
-  doc.setFont("helvetica","normal"); doc.setFontSize(12);
-  doc.text(t("Enseignant : "+S.prof),22,55);
-  doc.text("Mercredi : "+(w?hh(w.slot)+" - "+hh(END[w.slot]):"-"),22,70);
-  doc.text("Jeudi : "+(j?hh(j.slot)+" - "+hh(END[j.slot]):"-"),22,80);
-  doc.text("Vendredi (oral) : "+(f?(f.slot==="1"?"1er":f.slot+"e")+" passage "+(Number(f.slot)<=3?"(avant la pause déjeuner)":"(après la pause déjeuner)"):"-"),22,90);
-  doc.setFontSize(9); doc.text("Édité le "+new Date().toLocaleDateString("fr-FR"),22,120);
-  const filename="convocation-"+t(S.group).replace(/[^a-zA-Z0-9]+/g,"-")+".pdf";
-  try{
-    const dl = window.claude && await window.claude.use("downloads");
-    if(dl) await dl.save({filename, data: doc.output("blob")}); else doc.save(filename);
-  }catch(e){ if(!e||e.code!=="declined") toast("Le PDF n'a pas pu être enregistré.","err"); }
+  confetti();
 }
 
 function cell(day,p,s){ const r=take(day,p,s); return r?esc(r.group_name):'<span style="color:var(--mute)">libre</span>'; }
@@ -329,7 +277,6 @@ function bind(){
   else if(S.step==="done"){
     $("reset").onclick=()=>{ localStorage.removeItem("group"); localStorage.removeItem("prof"); S.group=S.prof=""; go("group"); };
     $("restart").onclick=()=>go("reset");
-    $("ticket").onclick=makeTicket; $("again").onclick=()=>confetti(50);
   }
   else {
     document.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{ S.sel=b.dataset.s; renderPlanning(); bind(); });
