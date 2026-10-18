@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Réservations – Promo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root{--bg:#f5f4f0;--card:#fff;--ink:#1c1c1a;--mute:#76746d;--line:#e3e1da;--acc:#1c1c1a;
+        --ok:#e3f4e6;--okb:#2e8b45;--ko:#f6dede;--kob:#c0392b;--sel:#1c1c1a}
+  @media(prefers-color-scheme:dark){:root{--bg:#161615;--card:#212120;--ink:#f1f0ec;--mute:#9b9990;--line:#33332f;
+        --acc:#f1f0ec;--ok:#1d3324;--okb:#4cc26a;--ko:#3b2020;--kob:#e5675a;--sel:#f1f0ec}}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.4}
+  main{max-width:520px;margin:0 auto;padding:24px 16px 64px}
+  .steps{display:flex;gap:6px;margin-bottom:20px}
+  .steps i{flex:1;height:4px;border-radius:2px;background:var(--line)}
+  .steps i.on{background:var(--acc)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px}
+  h1{font-size:1.35rem;margin:0 0 6px} p.sub{color:var(--mute);margin:0 0 18px;font-size:.95rem}
+  input[type=text]{width:100%;padding:14px;font-size:1rem;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink)}
+  button.main{width:100%;margin-top:16px;padding:14px;font-size:1rem;font-weight:600;border:0;border-radius:12px;background:var(--acc);color:var(--bg);cursor:pointer}
+  button.main:disabled{opacity:.35;cursor:not-allowed}
+  button.link{background:none;border:0;color:var(--mute);margin-top:12px;cursor:pointer;font-size:.9rem;text-decoration:underline}
+  .list{display:grid;gap:8px}
+  .opt{padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--bg);cursor:pointer;font-size:1rem;text-align:left;color:var(--ink)}
+  .opt.sel{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel);font-weight:600}
+  .slot{display:flex;justify-content:space-between;align-items:center;padding:14px;border-radius:12px;border:1px solid var(--okb);background:var(--ok);cursor:pointer;color:var(--ink);font-size:1rem;width:100%}
+  .slot.taken{border-color:var(--kob);background:var(--ko);cursor:not-allowed;opacity:.85}
+  .slot.sel{background:var(--sel);color:var(--bg);border-color:var(--sel)}
+  .slot small{font-weight:600}
+  .tag{display:inline-block;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:3px 10px;font-size:.8rem;color:var(--mute);margin:0 6px 14px 0}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:90%;padding:12px 18px;border-radius:12px;color:#fff;font-size:.95rem;opacity:0;pointer-events:none;transition:.25s;z-index:9}
+  #toast.show{opacity:1} #toast.ok{background:#2e8b45} #toast.err{background:#c0392b}
+  table{width:100%;border-collapse:collapse;margin-top:6px} td{padding:9px 0;border-bottom:1px solid var(--line)} td:last-child{text-align:right;font-weight:600}
+  .big{font-size:2.4rem;margin:0 0 6px}
+  table.t3 th{padding:7px 0;text-align:left;font-size:.8rem;color:var(--mute);border-bottom:1px solid var(--line);font-weight:600}
+  table.t3 td,table.t3 td:last-child{text-align:left;font-weight:400}
+  .pdfbtn{padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:.85rem;cursor:pointer}
+  .pause{text-align:center;padding:10px;border:1px dashed var(--line);border-radius:12px;color:var(--mute);font-size:.9rem}
+  .rc{display:flex;gap:14px;align-items:center;padding:12px 14px;margin-top:8px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+  .rc .ic{font-size:1.6rem} .rc small{display:block;color:var(--mute);font-size:.8rem} .rc b{display:block;font-size:1.02rem}
+  .confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:8}
+  .confetti span{position:absolute;top:-40px;animation:fall linear forwards}
+  @keyframes fall{to{transform:translateY(110vh) rotate(360deg)}}
+</style>
+</head>
+<body>
+<main>
+  <div class="steps" id="steps"></div>
+  <div class="card" id="view"></div>
+</main>
+<div id="toast"></div>
+
+<script>
+/* ====== À CONFIGURER (voir README) ====== */
+/* Rien à modifier ici : la config se fait dans le navigateur (écran « Configuration »). */
+const qs = new URLSearchParams(location.search);
+const SUPABASE_URL = qs.get("u") || localStorage.getItem("sbu") || "https://kvbntwdvfxpcfnjbrynx.supabase.co";
+const SUPABASE_KEY = qs.get("k") || localStorage.getItem("sbk") || "sb_publishable_YZBR-q_ed9njOF15XgW8Kw_Y7wxtDVo";
+if (qs.get("u") && qs.get("k")) { localStorage.setItem("sbu", SUPABASE_URL); localStorage.setItem("sbk", SUPABASE_KEY); }
+/* ======================================== */
+
+const PROFS = ["V. Tricaud","T. Labarthe","Q. Prost","C. Gotlieb","V. Brandela","V. Dupis"];
+const TIMES = {
+  mercredi:["14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30"],   /* cours 14h-18h */
+  jeudi:["09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30"]       /* cours 9h-13h */
+};
+const END = {"09:00":"09:30","09:30":"10:00","10:00":"10:30","10:30":"11:00","11:00":"11:30","11:30":"12:00","12:00":"12:30","12:30":"13:00",
+  "14:00":"14:30","14:30":"15:00","15:00":"15:30","15:30":"16:00","16:00":"16:30","16:30":"17:00","17:00":"17:30","17:30":"18:00"};
+const PLACES = ["1","2","3","4","5","6"];
+const ORDER = ["group","prof","mercredi","jeudi","vendredi","done"];
+
+const db = (SUPABASE_URL && SUPABASE_KEY) ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+const S = { step:"group", group:localStorage.getItem("group")||"", prof:localStorage.getItem("prof")||"", sel:null, rows:[], busy:false };
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm = s => s.trim().toLowerCase();
+const hh = t => t.replace(":00","h00").replace(":30","h30").replace(/^0/,"");
+
+function toast(msg, type="ok"){
+  const t=$("toast"); t.textContent=msg; t.className="show "+type;
+  clearTimeout(toast.t); toast.t=setTimeout(()=>t.className="",3500);
+}
+
+async function load(){
+  const { data, error } = await db.from("bookings").select("day,prof,slot,group_name");
+  if(error){ toast("Connexion à la base impossible. Réessaie.","err"); return false; }
+  S.rows = data; return true;
+}
+const mine = day => S.rows.find(r => r.day===day && norm(r.group_name)===norm(S.group));
+const take = (day,prof,slot) => S.rows.find(r => r.day===day && r.prof===prof && r.slot===slot);
+
+function nextStep(){
+  if(!mine("mercredi")) return "mercredi";
+  if(!mine("jeudi")) return "jeudi";
+  if(!mine("vendredi")) return "vendredi";
+  return "done";
+}
+function go(step){ S.step=step; S.sel=null; render(); window.scrollTo(0,0); }
+
+function render(){
+  const i = ORDER.indexOf(S.step);
+  $("steps").innerHTML = ORDER.slice(0,5).map((_,k)=>`<i class="${k<=i?"on":""}"></i>`).join("");
+  const v = $("view");
+  if(S.step==="group") v.innerHTML = `
+    <h1>Quel est le nom de ton groupe ?</h1><p class="sub">Il sera utilisé pour toutes tes réservations.</p>
+    <input type="text" id="g" maxlength="40" placeholder="Nom du groupe" value="${esc(S.group)}" autocomplete="off">
+    <button class="main" id="ok">Valider</button>
+    <button class="link" id="seeall">Voir le planning des profs</button>`;
+  else if(S.step==="prof") v.innerHTML = `
+    <span class="tag">Groupe : ${esc(S.group)}</span>
+    <h1>Quel prof tu as ?</h1><p class="sub">Choisis ton professeur.</p>
+    <div class="list">${PROFS.map(p=>`<button class="opt ${S.prof===p?"sel":""}" data-p="${esc(p)}">${esc(p)}</button>`).join("")}</div>
+    <button class="main" id="ok" ${S.prof?"":"disabled"}>Valider</button>
+    <button class="link" id="back">← Changer le nom du groupe</button>`;
+  else if(S.step==="mercredi"||S.step==="jeudi"||S.step==="vendredi") renderPlanning();
+  else if(S.step==="planning") renderAll();
+  else if(S.step==="reset") renderReset();
+  else renderDone();
+  bind();
+}
+
+function renderPlanning(){
+  const day=S.step, fri=day==="vendredi", cap=day[0].toUpperCase()+day.slice(1);
+  const prof = S.prof;
+  const items = (fri?PLACES:TIMES[day]).map(s=>{
+    const r=take(day,prof,s), label = fri ? (s==="1"?"1er passage":s+"e passage") : `${hh(s)} – ${hh(END[s])}`;
+    const pre = (fri && s==="4") ? '<div class="pause">🍽️ Pause déjeuner</div>' : "";
+    if(r) return pre+`<button class="slot taken" disabled><span>${label}</span><small>${esc(r.group_name)}</small></button>`;
+    return pre+`<button class="slot ${S.sel===s?"sel":""}" data-s="${s}"><span>${label}</span><small>${S.sel===s?"Sélectionné":"Libre"}</small></button>`;
+  }).join("");
+  $("view").innerHTML = `
+    <span class="tag">Groupe : ${esc(S.group)}</span><span class="tag">${esc(S.prof)}</span>
+    <h1>${fri?"Ordre de passage – Vendredi":"Planning – "+cap}</h1>
+    <p class="sub">${fri?"Choisis ta place pour l'oral.":"Choisis un créneau de 30 minutes."} Vert = libre, rouge = pris.</p>
+    <div class="list">${items}</div>
+    <button class="main" id="ok" ${S.sel?"":"disabled"}>${fri?"Valider mon ordre de passage":"Valider ma réservation"}</button>
+    <button class="link" id="restart">↺ Recommencer de zéro</button>`;
+}
+
+function renderReset(){
+  const n=["mercredi","jeudi","vendredi"].filter(d=>mine(d)).length;
+  $("view").innerHTML = `
+    <span class="tag">Groupe : ${esc(S.group)}</span>
+    <h1>Recommencer de zéro ?</h1>
+    <p class="sub">${n ? "Tes réservations seront annulées et les créneaux libérés pour les autres groupes." : "Tu repars de la première page."}</p>
+    <button class="main" id="yes">Oui, recommencer</button>
+    <button class="link" id="no">Non, revenir en arrière</button>`;
+}
+
+async function resetAll(){
+  if(S.busy) return; S.busy=true; $("yes").disabled=true;
+  await load();
+  const days=["mercredi","jeudi","vendredi"];
+  const had = days.some(d=>mine(d));
+  if(had){
+    const { error } = await db.rpc("cancel_my_bookings",{ p_group:S.group.trim(), p_token:tok() });
+    await load();
+    if(error || days.some(d=>mine(d))){
+      S.busy=false; render();
+      return toast("Impossible d'annuler depuis cet appareil. Demande à l'organisateur de libérer tes créneaux.","err");
+    }
+  }
+  S.busy=false;
+  localStorage.removeItem("group"); localStorage.removeItem("prof");
+  S.group=S.prof="";
+  toast(had?"Réservations annulées.":"C'est reparti !","ok"); go("group");
+}
+
+/* Identifiant secret propre à cet appareil : sert à prouver qu'on peut annuler ses propres réservations */
+function tok(){
+  let t=localStorage.getItem("tok");
+  if(!t){ t=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now()); localStorage.setItem("tok",t); }
+  return t;
+}
+async function sha(t){
+  const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t));
+  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+
+function confetti(n=28){
+  if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const em=["🎉","✨","📐","🏛️","🎊","✏️"], box=document.createElement("div"); box.className="confetti";
+  for(let i=0;i<n;i++){
+    const s=document.createElement("span"); s.textContent=em[i%em.length];
+    s.style.left=(Math.random()*96)+"vw"; s.style.fontSize=(16+Math.random()*16)+"px";
+    s.style.animationDuration=(2.5+Math.random()*2.5)+"s"; s.style.animationDelay=(Math.random()*1.2)+"s";
+    box.appendChild(s);
+  }
+  document.body.appendChild(box); setTimeout(()=>box.remove(),7500);
+}
+
+function renderDone(){
+  const w=mine("mercredi"), j=mine("jeudi"), f=mine("vendredi");
+  const row=(ic,l,v)=>`<div class="rc"><span class="ic">${ic}</span><div><small>${l}</small><b>${v}</b></div></div>`;
+  const fr = f ? (f.slot==="1"?"1er":f.slot+"e")+" passage "+(Number(f.slot)<=3?"(avant la pause déjeuner)":"(après la pause déjeuner)") : "–";
+  $("view").innerHTML = `
+    <div class="big">🎉</div>
+    <h1>Bravo ${esc(S.group)}, c'est dans la boîte !</h1>
+    <p class="sub">Vos 3 rendez-vous sont réservés avec <b>${esc(S.prof)}</b>. Il ne reste plus qu'à préparer l'oral !</p>
+    ${row("📐","Mercredi",w?hh(w.slot)+" – "+hh(END[w.slot]):"–")}
+    ${row("✏️","Jeudi",j?hh(j.slot)+" – "+hh(END[j.slot]):"–")}
+    ${row("🏛️","Vendredi · oral",fr)}
+    <p class="sub" style="margin-top:16px">Fais une capture d'écran pour garder tes horaires. Bon courage ! 💪</p>
+    <button class="link" id="seeall">Voir le planning des profs / PDF</button><br>
+    <button class="link" id="restart">↺ Recommencer de zéro</button><br>
+    <button class="link" id="reset">Je suis un autre groupe</button>`;
+  confetti();
+}
+
+function cell(day,p,s){ const r=take(day,p,s); return r?esc(r.group_name):'<span style="color:var(--mute)">libre</span>'; }
+
+function renderAll(){
+  const h2='font-size:1.05rem;margin:24px 0 4px;display:flex;justify-content:space-between;align-items:center';
+  const tab=(d,p,title,gap)=>`<table class="t3" style="margin-top:${gap}px"><tr><th>${title}</th><th>Groupe</th></tr>
+      ${TIMES[d].map(s=>`<tr><td>${hh(s)} - ${hh(END[s])}</td><td>${cell(d,p,s)}</td></tr>`).join("")}</table>`;
+  $("view").innerHTML = `
+    <h1>Planning des profs</h1><p class="sub">Mercredi, jeudi et ordre de passage du vendredi pour chaque prof.</p>
+    <button class="main" id="pdfall" style="margin-top:0">Télécharger le PDF (tous les profs)</button>
+    ${PROFS.map(p=>`<h2 style="${h2}">${esc(p)}<button class="pdfbtn" data-pdf="${esc(p)}">PDF</button></h2>
+      ${tab("mercredi",p,"Mercredi",0)}${tab("jeudi",p,"Jeudi",10)}
+      <table class="t3" style="margin-top:10px"><tr><th>Vendredi (oral)</th><th>Groupe</th></tr>
+      ${PLACES.map(s=>`${s==="4"?'<tr><td colspan="2" style="color:var(--mute);text-align:center">🍽️ Pause déjeuner</td></tr>':""}<tr><td>${s==="1"?"1er":s+"e"} passage</td><td>${cell("vendredi",p,s)}</td></tr>`).join("")}</table>`).join("")}
+    <button class="link" id="back2">← Retour</button>`;
+}
+
+async function makePDF(list,filename){
+  if(!window.jspdf) return toast("Le module PDF ne s'est pas chargé. Réessaie.","err");
+  await load();
+  const doc=new window.jspdf.jsPDF({unit:"mm",format:"a4"});
+  const t=x=>String(x).replace(/[^\x20-\xFF]/g,"?");
+  list.forEach((p,i)=>{
+    if(i) doc.addPage();
+    let y=22;
+    doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.text(t("Planning - "+p),20,y); y+=12;
+    ["mercredi","jeudi"].forEach(d=>{
+      doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.text(d[0].toUpperCase()+d.slice(1),20,y); y+=7;
+      doc.setFont("helvetica","normal"); doc.setFontSize(11);
+      TIMES[d].forEach(s=>{ const r=take(d,p,s); doc.text(hh(s)+" - "+hh(END[s]),20,y); doc.text(r?t(r.group_name):"libre",70,y); y+=6.5; });
+      y+=6;
+    });
+    doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.text("Vendredi - ordre de passage (oral)",20,y); y+=7;
+    doc.setFont("helvetica","normal"); doc.setFontSize(11);
+    PLACES.forEach(s=>{ if(s==="4"){ doc.setFont("helvetica","italic"); doc.text("- Pause déjeuner -",20,y); y+=6.5; doc.setFont("helvetica","normal"); } const r=take("vendredi",p,s); doc.text(s==="1"?"1er passage":s+"e passage",20,y); doc.text(r?t(r.group_name):"libre",70,y); y+=6.5; });
+    doc.setFontSize(9); doc.text("Edite le "+new Date().toLocaleDateString("fr-FR"),20,285);
+  });
+  try{
+    const dl = window.claude && await window.claude.use("downloads");   /* uniquement dans l'aperçu Claude */
+    if(dl) await dl.save({filename, data: doc.output("blob")}); else doc.save(filename);
+  }catch(e){ if(!e||e.code!=="declined") toast("Le PDF n'a pas pu être enregistré.","err"); }
+}
+
+function bind(){
+  const ok=$("ok");
+  const sa=$("seeall"); if(sa) sa.onclick=async()=>{ await load(); go("planning"); };
+  if(S.step==="group"){
+    const g=$("g"); g.focus();
+    const submit=()=>{ const v=g.value.trim(); if(!v) return toast("Entre un nom de groupe.","err");
+      S.group=v; localStorage.setItem("group",v); go("prof"); };
+    ok.onclick=submit; g.onkeydown=e=>{ if(e.key==="Enter") submit(); };
+  }
+  else if(S.step==="prof"){
+    document.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{ S.prof=b.dataset.p; render(); });
+    ok.onclick=async()=>{ localStorage.setItem("prof",S.prof); if(await load()) go(nextStep()); };
+    $("back").onclick=()=>go("group");
+  }
+  else if(S.step==="planning"){
+    $("pdfall").onclick=()=>makePDF(PROFS,"planning-profs.pdf");
+    document.querySelectorAll("[data-pdf]").forEach(b=>b.onclick=()=>makePDF([b.dataset.pdf],"planning-"+b.dataset.pdf.replace(/\s+/g,"-")+".pdf"));
+    $("back2").onclick=()=>go(S.group&&S.prof?nextStep():"group");
+  }
+  else if(S.step==="reset"){
+    $("yes").onclick=resetAll; $("no").onclick=()=>go(nextStep());
+  }
+  else if(S.step==="done"){
+    $("reset").onclick=()=>{ localStorage.removeItem("group"); localStorage.removeItem("prof"); S.group=S.prof=""; go("group"); };
+    $("restart").onclick=()=>go("reset");
+  }
+  else {
+    document.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{ S.sel=b.dataset.s; renderPlanning(); bind(); });
+    ok.onclick=book;
+    $("restart").onclick=()=>go("reset");
+  }
+}
+
+async function book(){
+  if(S.busy||!S.sel) return; S.busy=true; $("ok").disabled=true;
+  const day=S.step, prof=S.prof;
+  const row = { day, prof, slot:S.sel, group_name:S.group.trim(), owner_hash: await sha(tok()) };
+  let { error } = await db.from("bookings").insert(row);
+  if(error && error.code==="PGRST204"){ delete row.owner_hash; ({ error } = await db.from("bookings").insert(row)); }
+  S.busy=false;
+  if(error){
+    const m=(error.message||"")+(error.details||"");
+    await load();
+    if(error.code==="23505" && m.includes("bookings_slot_unique")){
+      S.sel=null; toast("Trop tard : ce créneau vient d'être pris par un autre groupe.","err"); render();
+    } else if(error.code==="23505" && m.includes("bookings_group_day_unique")){
+      toast("Ton groupe a déjà réservé pour ce jour.","err"); go(nextStep());
+    } else { toast("Erreur, réessaie dans un instant.","err"); render(); }
+    return;
+  }
+  await load();
+  toast("Réservation confirmée !","ok");
+  go(nextStep());
+}
+
+/* Temps réel + secours par rafraîchissement régulier */
+async function refresh(){
+  if(!["mercredi","jeudi","vendredi"].includes(S.step)) return;
+  await load();
+  const prof=S.prof;
+  if(S.sel && take(S.step,prof,S.sel)){ S.sel=null; toast("Le créneau choisi vient d'être pris.","err"); }
+  if(mine(S.step)) return go(nextStep());
+  renderPlanning(); bind();
+}
+function renderSetup(){
+  $("steps").innerHTML="";
+  $("view").innerHTML = `
+    <h1>Configuration</h1>
+    <p class="sub">Colle les 2 infos de ton projet Supabase (Settings &gt; API), puis partage le lien généré à ta promo.</p>
+    <input type="text" id="u" placeholder="Project URL" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <div style="height:8px"></div>
+    <input type="text" id="k" placeholder="Clé anon public" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <button class="main" id="gen">Générer le lien à partager</button>
+    <div id="out"></div>`;
+  $("gen").onclick=()=>{
+    const u=$("u").value.trim(), k=$("k").value.trim();
+    if(!u.startsWith("https://")||k.length<20) return toast("Vérifie l'URL et la clé.","err");
+    const link=location.origin+location.pathname+"?u="+encodeURIComponent(u)+"&k="+encodeURIComponent(k);
+    $("out").innerHTML = `<p class="sub" style="margin-top:16px">Ton lien à envoyer :</p>
+      <input type="text" id="lk" readonly value="${esc(link)}">
+      <button class="main" id="cp">Copier le lien</button>`;
+    $("cp").onclick=async()=>{ $("lk").select(); try{ await navigator.clipboard.writeText(link); toast("Lien copié !","ok"); }catch(e){ toast("Appuie longuement sur le lien pour le copier.","err"); } };
+  };
+}
+
+if(!db){
+  renderSetup();
+} else {
+  db.channel("bookings").on("postgres_changes",{event:"*",schema:"public",table:"bookings"},refresh).subscribe();
+  setInterval(refresh,10000);
+  /* Démarrage : on reprend là où le groupe s'est arrêté */
+  (async()=>{
+    if(S.group && S.prof && await load()) go(nextStep()); else render();
+  })();
+}
+</script>
+</body>
+</html>
